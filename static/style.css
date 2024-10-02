@@ -1,0 +1,81 @@
+/* Estilos personalizados */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+}
+
+header {
+    background: #007bff;
+    color: white;
+    padding: 20px 0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+header .header-content {
+    position: relative;
+    width: 100%;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+header .header-logo {
+    position: absolute;
+    top: 10px;
+    right: 20px; /* Para alinhar à direita */
+    width: 80px;  /* Tamanho da imagem */
+    height: auto;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+main {
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+footer {
+    background: #343a40;
+    color: #fff;
+    position: relative;
+    bottom: 0;
+    width: 100%;
+    padding: 10px 0;
+}
+
+footer a {
+    text-decoration: none;
+    color: #ffffff;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+/* Ajustes para telas menores */
+@media (max-width: 600px) {
+    header {
+        justify-content: left;
+        text-align: left;
+    }
+
+    header .logo {
+        margin: 0 auto px auto; 
+        height: 40px;
+        justify-content: right; 
+    }
+
+    header h1 {
+        font-size: 20px;
+        text-align: left;
+    }
+}

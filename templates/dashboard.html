@@ -10,27 +10,70 @@
 <body>
 
     <!-- Cabeçalho -->
-    <header class="bg-primary text-white p-3 text-center">
-        <div class="header-content">
-            <h1>Battery Health Monitoring</h1>
-            <p>Graficos mostrando a tensão, resistencia e tempertatura da bateria</p>
-            <!-- Adicionando a imagem no cabeçalho -->
-            <img src="https://images.builderservices.io/s/cdn/v1.0/i/m?url=https%3A%2F%2Fstorage.googleapis.com%2Fproduction-hostgator-brasil-v1-0-5%2F725%2F1528725%2F01Y0yIm7%2F378ef0716af942f492ecbf1560c1b6c7&methods=resize%2C500%2C5000" alt="Logo" class="header-logo">
+    <header class="bg-light text-dark p-3">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="header-logo">
+                    <img src="image/logo_without_back.png" alt="Logo" class="header-logo" alt="Logo" class="header-logo">
+                </div>
+                <nav class="d-flex align-items-center">
+                    <a href="/cadastro-bateria" class="btn btn-outline-primary me-2">
+                        Novo Cadastro
+                    </a>
+                </nav>
+            </div>
         </div>
     </header>
 
     <!-- Conteúdo principal com gráficos -->
     <main class="container my-5">
+
+        <form method="POST" action="/" class="my-4 p-3 bg-light rounded shadow">
+            <div class="row">
+                <div class="col-md-4">
+                    <label for="voltage_filter" class="form-label">Tensão menor que (V):</label>
+                    <input type="number" id="voltage_filter" name="voltage_filter" class="form-control" placeholder="Digite a tensão">
+                </div>
+        
+                <div class="col-md-4">
+                    <label for="location_filter" class="form-label">Localização:</label>
+                    <input type="text" id="location_filter" name="location_filter" class="form-control" placeholder="Digite a localização">
+                </div>
+        
+                <div class="col-md-4">
+                    <label for="mac_filter" class="form-label">Endereço MAC:</label>
+                    <input type="text" id="mac_filter" name="mac_filter" class="form-control" placeholder="Digite o MAC">
+                </div>
+        
+                <div class="col-md-6">
+                    <label for="start_date" class="form-label">Data de início:</label>
+                    <input type="date" id="start_date" name="start_date" class="form-control">
+                </div>
+        
+                <div class="col-md-6">
+                    <label for="end_date" class="form-label">Data de término:</label>
+                    <input type="date" id="end_date" name="end_date" class="form-control">
+                </div>
+            </div>
+        
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+            </div>
+        </form>
+        
         <div class="row">
             <div class="col-md-12">
                 {{ graph|safe }}  <!-- Gráfico gerado pelo Plotly -->
             </div>
         </div>
+
+
     </main>
+
 
     <!-- Rodapé -->
     <footer class="bg-dark text-white text-center py-3">
-        <p>&copy; 2024 Battery Monitoring System | Developed by Universidade Positivo</p>
+        <p>&copy; 2024 Battery Monitoring System | i9+ Baterias Elétricas e Energias</p>
         <p><a href="mailto:email@example.com" class="text-white">Contact Us</a></p>
     </footer>
 

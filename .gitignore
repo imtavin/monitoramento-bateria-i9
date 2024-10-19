@@ -1,6 +1,9 @@
 # File to create a db
 create_db.py
 
+#File to test
+teste.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

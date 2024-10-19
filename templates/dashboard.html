@@ -14,7 +14,7 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="header-logo">
-                    <img src="image/logo_without_back.png" alt="Logo" class="header-logo" alt="Logo" class="header-logo">
+                    <img src= "/static/image/logo_without_back.png" alt="Logo" class="header-logo" class="header-logo">
                 </div>
                 <nav class="d-flex align-items-center">
                     <a href="/cadastro-bateria" class="btn btn-outline-primary me-2">
@@ -37,22 +37,23 @@
         
                 <div class="col-md-4">
                     <label for="location_filter" class="form-label">Localização:</label>
-                    <input type="text" id="location_filter" name="location_filter" class="form-control" placeholder="Digite a localização">
+                    <select id="location_filter" name="location_filter" class="form-control">
+                        <option value="" selected>Selecione uma localização</option>
+                        {% for location in batteries_loc %}
+                            <option value="{{ location }}" {% if filters.location == location %}selected{% endif %}>{{ location }}</option>
+                        {% endfor %}
+
+                    </select>
                 </div>
         
                 <div class="col-md-4">
                     <label for="mac_filter" class="form-label">Endereço MAC:</label>
-                    <input type="text" id="mac_filter" name="mac_filter" class="form-control" placeholder="Digite o MAC">
-                </div>
-        
-                <div class="col-md-6">
-                    <label for="start_date" class="form-label">Data de início:</label>
-                    <input type="date" id="start_date" name="start_date" class="form-control">
-                </div>
-        
-                <div class="col-md-6">
-                    <label for="end_date" class="form-label">Data de término:</label>
-                    <input type="date" id="end_date" name="end_date" class="form-control">
+                    <select id="mac_filter" name="mac_filter" class="form-control">
+                        <option value="" selected>Selecione um MAC</option>
+                        {% for mac, company in batteries %}
+                            <option value="{{ mac }}" {% if filters.mac_address == mac %}selected{% endif %}>{{ company }} ({{ mac }})</option>
+                        {% endfor %}
+                    </select>
                 </div>
             </div>
         
@@ -61,11 +62,19 @@
             </div>
         </form>
         
-        <div class="row">
-            <div class="col-md-12">
-                {{ graph|safe }}  <!-- Gráfico gerado pelo Plotly -->
+        <!-- Mensagem de feedback se nenhuma bateria for encontrada -->
+        {% if filters.location and not batteries %}
+            <p class="text-danger text-center mt-3">Nenhuma bateria encontrada para a localização "{{ filters.location }}"</p>
+        {% endif %}
+        
+        <!-- Gráficos -->
+        {% if graph %}
+            <div class="row mt-5">
+                <div class="col-md-12">
+                    {{ graph|safe }}
+                </div>
             </div>
-        </div>
+        {% endif %}
 
 
     </main>

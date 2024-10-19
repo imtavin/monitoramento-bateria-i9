@@ -10,10 +10,22 @@ def connect_db():
     conn = sqlite3.connect('bateria.db')
     return conn
 
+# Função para obter baterias por localização
+def get_batteries_by_location(location):
+    conn = connect_db()
+    cursor = conn.cursor()
+    query = "SELECT mac_address, company_name FROM batteries WHERE location = ?"
+    cursor.execute(query, (location,))
+    batteries = cursor.fetchall()
+    conn.close()
+    return batteries
+
 # Função para obter os dados da bateria
 def get_battery_data(filters=None):
     conn = connect_db()
     cursor = conn.cursor()
+
+    # Aplica filtros, se houver
     query = "SELECT * FROM batteries WHERE 1=1"
     params = []
 
@@ -30,15 +42,11 @@ def get_battery_data(filters=None):
             query += " AND mac_address = ?"
             params.append(filters['mac_address'])
 
-        if 'start_date' in filters and 'end_date' in filters:
-            query += " AND timestamp BETWEEN ? AND ?"
-            params.append(filters['start_date'])
-            params.append(filters['end_date'])
-
     cursor.execute(query, params)
     data = cursor.fetchall()
     conn.close()
     return data
+
 
 # Função para cadastrar novas baterias
 @app.route('/cadastro-bateria', methods=['GET', 'POST'])
@@ -61,39 +69,72 @@ def cadastro_bateria():
 
 # Função para criar os gráficos
 def create_graphs(data):
-    # Organiza os dados por MAC Address
-    mac_addresses = list(set(row[2] for row in data))  # Assume que o MAC está na coluna 2
-    fig = make_subplots(rows=len(mac_addresses), cols=1, subplot_titles=[f"MAC: {mac}" for mac in mac_addresses])
+    if not data:
+        return "<p>Nenhum dado disponível</p>"
 
-    for i, mac in enumerate(mac_addresses):
-        filtered_data = [row for row in data if row[2] == mac]  # Filtra dados por MAC
-        timestamps = [row[6] for row in filtered_data]  # Timestamp
-        voltages = [row[4] for row in filtered_data]    # Voltage
+    data = sorted(data, key=lambda p: p[7], reverse=True)
 
-        fig.add_trace(go.Scatter(x=timestamps, y=voltages, mode='lines', name=f'Voltage (V) - {mac}'), row=i+1, col=1)
+    # Certifique-se de que os índices estão corretos, com base em como seu dataset está estruturado
+    timestamps = [row[7] for row in data]  # Timestamp
+    voltages = [row[4] for row in data]    # Voltage
+    resistances = [row[5] for row in data] # Resistance
+    temperatures = [row[6] for row in data] # Temperature (verifique se este índice é correto)
 
-    fig.update_layout(height=300*len(mac_addresses), title_text="Battery Health by MAC", showlegend=False)
+    #print(temperatures)
+
+    fig = make_subplots(rows=3, cols=1, subplot_titles=('Voltage (V)', 'Resistance (Ω)', 'Temperature (°C)'))
+
+    # Adiciona os dados ao gráfico
+    fig.add_trace(go.Scatter(x=timestamps, y=voltages, mode='lines', name='Voltage'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=timestamps, y=resistances, mode='lines', name='Resistance'), row=2, col=1)
+    fig.add_trace(go.Scatter(x=timestamps, y=temperatures, mode='lines', name='Temperature'), row=3, col=1)
+
+    # Ajustar o layout
+    fig.update_layout(height=800, title_text="Battery Health for MAC", showlegend=False)
 
     return fig.to_html(full_html=False)
-# Rota para a página inicial com filtros
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     filters = {}
+    batteries = []
+    batteries_loc = []
 
     if request.method == 'POST':
+        # Filtro por localização
         if request.form.get('location_filter'):
             filters['location'] = request.form['location_filter']
+
+        # Filtro por tensão
         if request.form.get('voltage_filter'):
             filters['voltage'] = request.form['voltage_filter']
+
+        # Filtro por MAC Address
         if request.form.get('mac_filter'):
             filters['mac_address'] = request.form['mac_filter']
-        if request.form.get('start_date') and request.form.get('end_date'):
-            filters['start_date'] = request.form['start_date']
-            filters['end_date'] = request.form['end_date']
 
-    data = get_battery_data(filters)
+        # Obter dados filtrados
+        data = get_battery_data(filters)
+
+        # Adicionando depuração para verificar os dados retornados
+        #print(data)
+
+        # Gerar lista de baterias (endereços MAC e empresas) para a localização filtrada
+        if data:
+            batteries = sorted(set([(row[2], row[1]) for row in data])) # (mac_address, company_name)
+            batteries_loc = sorted(set([row[3] for row in data]))  # Lista única e ordenada de localizações
+        
+        # Gerar gráfico apenas para o MAC filtrado
+        graph = create_graphs(data)
+
+        return render_template('dashboard.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
+    
+    # Se for um GET (sem filtro), carrega todos os dados
+    data = get_battery_data()
     graph = create_graphs(data)
-    return render_template('dashboard.html', graph=graph)
+    
+    return render_template('dashboard.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
+
 
 if __name__ == '__main__':
     app.run(debug=True)

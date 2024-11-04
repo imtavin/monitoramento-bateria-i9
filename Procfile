@@ -1,1 +1,1 @@
-web: gunicorn medidor_bateria:app
+web: gunicorn app:app

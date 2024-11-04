@@ -164,13 +164,13 @@ def index():
             graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
             alerts = []
 
-        return render_template('dashboard.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters, alerts=alerts)
+        return render_template('index.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters, alerts=alerts)
     
     # Se for um GET (sem filtro), carrega todos os dados
     data = get_battery_data()
     graph = create_graphs(data)
     
-    return render_template('dashboard.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
+    return render_template('index.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
 
 
 if __name__ == '__main__':

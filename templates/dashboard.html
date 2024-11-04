@@ -38,18 +38,17 @@
                 <div class="col-md-4">
                     <label for="location_filter" class="form-label">Localização:</label>
                     <select id="location_filter" name="location_filter" class="form-control">
-                        <option value="" selected>Selecione uma localização</option>
+                        <option value="" {% if not filters.location %}selected{% endif %}>Selecione uma localização</option>
                         {% for location in batteries_loc %}
                             <option value="{{ location }}" {% if filters.location == location %}selected{% endif %}>{{ location }}</option>
                         {% endfor %}
-
                     </select>
                 </div>
         
                 <div class="col-md-4">
                     <label for="mac_filter" class="form-label">Endereço MAC:</label>
                     <select id="mac_filter" name="mac_filter" class="form-control">
-                        <option value="" selected>Selecione um MAC</option>
+                        <option value="" {% if not filters.mac_address %}selected{% endif %}>Selecione um MAC</option>
                         {% for mac, company in batteries %}
                             <option value="{{ mac }}" {% if filters.mac_address == mac %}selected{% endif %}>{{ company }} ({{ mac }})</option>
                         {% endfor %}
@@ -61,6 +60,14 @@
                 <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
             </div>
         </form>
+
+        {% if alerts %}
+            <div class="alert alert-danger" role="alert">
+                {% for alerta in alerts %}
+                    <p>{{ alerta }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
         
         <!-- Mensagem de feedback se nenhuma bateria for encontrada -->
         {% if filters.location and not batteries %}
@@ -87,5 +94,36 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const macSelect = document.getElementById('mac-address');
+            const locationSelect = document.getElementById('location');
+        
+            // Função para resetar as opções de filtros
+            function resetOptions(selectElement, options) {
+                selectElement.innerHTML = ""; // Limpa as opções atuais
+                options.forEach(option => selectElement.appendChild(option.cloneNode(true)));
+            }
+        
+            // Salva uma cópia das opções originais
+            const macOptions = Array.from(macSelect.options);
+            const locationOptions = Array.from(locationSelect.options);
+        
+            // Event listeners para resetar as opções quando qualquer filtro muda
+            macSelect.addEventListener('change', () => resetOptions(locationSelect, locationOptions));
+            locationSelect.addEventListener('change', () => resetOptions(macSelect, macOptions));
+        });
+    </script>
+
+    {% block content %}
+    {% if alerts is defined and alerts%}
+        <script type=text/javascript>
+            const jsondata = JSON.parse('{{ alerts | tojson | safe}}');
+            alert(jsondata);
+        </script>
+    {% endif %}
+    {% endblock %}
+
 </body>
 </html>

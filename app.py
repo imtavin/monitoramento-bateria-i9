@@ -5,6 +5,9 @@ from plotly.subplots import make_subplots
 
 app = Flask(__name__)
 
+TEMPERATURA_LIMITE = 40  
+TENSAO_LIMITE = 13    
+
 # Função para conexão ao banco de dados
 def connect_db():
     conn = sqlite3.connect('bateria.db')
@@ -67,6 +70,25 @@ def cadastro_bateria():
 
     return render_template('cadastro_bateria.html')
 
+def get_alerts (data):
+    alerts = []  # Lista para armazenar mensagens de alerta
+    
+    for entry in data:
+        temperatura = entry[6]
+        tensao = entry[4]
+        horario = entry[7]
+        
+        # Verifique se a temperatura excede o limite
+        if temperatura > TEMPERATURA_LIMITE:
+            print("ALERTA")
+            alerts.append(f"Alerta: Temperatura alta de {temperatura}°C detectada no horario {horario}!")
+
+        # Verifique se a tensão excede o limite
+        if tensao > TENSAO_LIMITE:
+            alerts.append(f"Alerta: Tensão alta de {tensao}V detectada no horario {horario}!")
+
+    return alerts
+
 # Função para criar os gráficos
 def create_graphs(data):
     if not data:
@@ -80,7 +102,17 @@ def create_graphs(data):
     resistances = [row[5] for row in data] # Resistance
     temperatures = [row[6] for row in data] # Temperature (verifique se este índice é correto)
 
-    #print(temperatures)
+    if data and len(data) > 1 and len(data[1]) > 1:
+        company = data[1][1]
+    else:
+        company = "Dados insuficientes"
+
+    if data and len(data) > 1 and len(data[2]) > 1:
+        mac_address = data[1][2]
+    else:
+        mac_address = "Dados insuficientes"
+
+    print(data)
 
     fig = make_subplots(rows=3, cols=1, subplot_titles=('Voltage (V)', 'Resistance (Ω)', 'Temperature (°C)'))
 
@@ -90,7 +122,7 @@ def create_graphs(data):
     fig.add_trace(go.Scatter(x=timestamps, y=temperatures, mode='lines', name='Temperature'), row=3, col=1)
 
     # Ajustar o layout
-    fig.update_layout(height=800, title_text="Battery Health for MAC", showlegend=False)
+    fig.update_layout(height=900, title_text="Saúde da Bateria pelo MAC Address: " + mac_address + " Localizado em: " + company, showlegend=False)
 
     return fig.to_html(full_html=False)
 
@@ -117,17 +149,22 @@ def index():
         data = get_battery_data(filters)
 
         # Adicionando depuração para verificar os dados retornados
-        #print(data)
+        # print(data)
 
         # Gerar lista de baterias (endereços MAC e empresas) para a localização filtrada
         if data:
             batteries = sorted(set([(row[2], row[1]) for row in data])) # (mac_address, company_name)
             batteries_loc = sorted(set([row[3] for row in data]))  # Lista única e ordenada de localizações
         
-        # Gerar gráfico apenas para o MAC filtrado
-        graph = create_graphs(data)
+        # Verificar se um MAC Address foi selecionado
+        if 'mac_address' in filters:
+            graph = create_graphs(data)
+            alerts = get_alerts(data)
+        else:
+            graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
+            alerts = []
 
-        return render_template('dashboard.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
+        return render_template('dashboard.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters, alerts=alerts)
     
     # Se for um GET (sem filtro), carrega todos os dados
     data = get_battery_data()

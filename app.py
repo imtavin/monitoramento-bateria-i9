@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, send_file
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from io import BytesIO
 import sqlite3
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
@@ -50,6 +53,73 @@ def get_battery_data(filters=None):
     conn.close()
     return data
 
+def fetch_battery_data():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT mac_address, company_name, location, resistance, voltage, temperature FROM batteries")
+    data = cursor.fetchall()
+    conn.close()
+    return data
+
+# Rota para gerar e baixar o relatório em PDF.
+@app.route('/download-pdf')
+def download_pdf():
+    # Busca dados do banco
+    baterias = fetch_battery_data()
+
+    # Configura o PDF em memória
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Título do PDF
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(200, height - 50, "Relatório de Status das Baterias")
+
+    # Cabeçalhos da tabela
+    pdf.setFont("Helvetica-Bold", 12)
+    headers = ["MacAddress", "Empresa", "Localização", "Resistência (Ω)", "Tensão (V)", "Temperatura (°C)"]
+    x_offset = 40
+    y_offset = height - 100
+    col_width = [100, 80, 80, 100, 70, 100]  # Define a largura de cada coluna para melhor organização
+
+    # Desenha os cabeçalhos da tabela
+    for i, header in enumerate(headers):
+        pdf.drawString(x_offset, y_offset, header)
+        x_offset += col_width[i]
+
+    # Redefine o offset horizontal e ajusta o espaçamento vertical
+    y_offset -= 25
+    pdf.setFont("Helvetica", 10)
+
+    # Adiciona dados na tabela
+    for bateria in baterias:
+        x_offset = 40  # Redefine o início da linha
+        for i, item in enumerate(bateria):
+            pdf.drawString(x_offset, y_offset, str(item) if item is not None else "N/A")
+            x_offset += col_width[i]
+        y_offset -= 15
+
+        # Gera uma nova página se ultrapassar o limite da página
+        if y_offset < 40:
+            pdf.showPage()
+            y_offset = height - 100
+            # Redesenha cabeçalhos na nova página
+            x_offset = 40
+            pdf.setFont("Helvetica-Bold", 12)
+            for i, header in enumerate(headers):
+                pdf.drawString(x_offset, y_offset, header)
+                x_offset += col_width[i]
+            y_offset -= 25
+            pdf.setFont("Helvetica", 10)
+
+    # Finaliza e salva o PDF
+    pdf.save()
+
+    # Prepara o PDF para download
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="relatorio_baterias.pdf", mimetype='application/pdf')
+
 
 # Função para cadastrar novas baterias
 @app.route('/cadastro-bateria', methods=['GET', 'POST'])
@@ -66,7 +136,7 @@ def cadastro_bateria():
         conn.commit()
         conn.close()
 
-        return redirect(url_for('index'))  # Redireciona para a página principal após o cadastro
+        return redirect('index')  # Redireciona para a página principal após o cadastro
 
     return render_template('cadastro_bateria.html')
 

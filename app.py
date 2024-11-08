@@ -6,6 +6,7 @@ import sqlite3
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from io import BytesIO
+from werkzeug.security import generate_password_hash
 
 app = Flask(__name__)
 
@@ -55,62 +56,74 @@ def fetch_battery_data():
 # Rota para gerar e baixar o relatório em PDF.
 @app.route('/download-pdf')
 def download_pdf():
-    # Busca dados do banco
     baterias = fetch_battery_data()
-
-    # Configura o PDF em memória
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
 
-    # Título do PDF
+    # PDF Title
     pdf.setFont("Helvetica-Bold", 16)
     pdf.drawString(200, height - 50, "Relatório de Status das Baterias")
 
-    # Cabeçalhos da tabela
-    pdf.setFont("Helvetica-Bold", 12)
-    headers = ["MacAddress", "Empresa", "Localização", "Resistência (Ω)", "Tensão (V)", "Temperatura (°C)"]
-    x_offset = 40
+    # Column headers and widths
+    headers = ["MacAddress", "Empresa", "Localização", "Resistência (Ω)", "Tensão (V)", "Temperatura (°C)", "Data/Hora"]
+    col_widths = [90, 80, 80, 80, 70, 90, 100]  # Adjusted column widths
+    x_offset_start = 30
     y_offset = height - 100
-    col_width = [100, 80, 80, 100, 70, 100]  # Define a largura de cada coluna para melhor organização
+    row_height = 20
 
-    # Desenha os cabeçalhos da tabela
+    # Draw headers
+    pdf.setFont("Helvetica-Bold", 10)
+    x_offset = x_offset_start
     for i, header in enumerate(headers):
         pdf.drawString(x_offset, y_offset, header)
-        x_offset += col_width[i]
+        x_offset += col_widths[i]
 
-    # Redefine o offset horizontal e ajusta o espaçamento vertical
-    y_offset -= 25
-    pdf.setFont("Helvetica", 10)
+    y_offset -= row_height
 
-    # Adiciona dados na tabela
+    # Draw data rows
+    pdf.setFont("Helvetica", 9)
     for bateria in baterias:
-        x_offset = 40  # Redefine o início da linha
+        x_offset = x_offset_start
         for i, item in enumerate(bateria):
-            pdf.drawString(x_offset, y_offset, str(item) if item is not None else "N/A")
-            x_offset += col_width[i]
-        y_offset -= 15
+            text = str(item) if item is not None else "N/A"
+            pdf.drawString(x_offset, y_offset, text)
+            x_offset += col_widths[i]
+        
+        y_offset -= row_height
 
-        # Gera uma nova página se ultrapassar o limite da página
-        if y_offset < 40:
+        # Create a new page if nearing the end of the current page
+        if y_offset < 50:
             pdf.showPage()
             y_offset = height - 100
-            # Redesenha cabeçalhos na nova página
-            x_offset = 40
-            pdf.setFont("Helvetica-Bold", 12)
+            
+            # Redraw headers on new page
+            pdf.setFont("Helvetica-Bold", 10)
+            x_offset = x_offset_start
             for i, header in enumerate(headers):
                 pdf.drawString(x_offset, y_offset, header)
-                x_offset += col_width[i]
-            y_offset -= 25
-            pdf.setFont("Helvetica", 10)
+                x_offset += col_widths[i]
+            
+            y_offset -= row_height
+            pdf.setFont("Helvetica", 9)
 
-    # Finaliza e salva o PDF
     pdf.save()
-
-    # Prepara o PDF para download
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name="relatorio_baterias.pdf", mimetype='application/pdf')
 
+@app.route('/cadastro-usuario', methods=['GET', 'POST'])
+def cadastro_usuario():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+        role = request.form['role']
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", (username, password, role))
+        conn.commit()
+        conn.close()
+    return render_template('cadastro_usuario.html')
 
 # Função para cadastrar novas baterias
 @app.route('/cadastro-bateria', methods=['GET', 'POST'])
@@ -260,7 +273,7 @@ def gerar_relatorio():
     # Envia o PDF como resposta para download
     return Response(buffer, mimetype='application/pdf', headers={"Content-Disposition": "attachment;filename=relatorio_baterias.pdf"})
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     filters = {}
     batteries = []

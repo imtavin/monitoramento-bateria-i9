@@ -13,12 +13,17 @@
     <header class="bg-light text-dark p-3">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
-                <div class="header-logo">
-                    <img src= "/static/image/logo_without_back.png" alt="Logo" class="header-logo" class="header-logo">
-                </div>
+                <a href="{{ url_for('index') }}"> 
+                    <div class="header-logo">
+                        <img src= "/static/image/logo_without_back.png" alt="Logo" class="header-logo" class="header-logo">
+                    </div>
+                </a>    
                 <nav class="d-flex align-items-center">
-                    <a href="/cadastro-bateria" class="btn btn-outline-primary me-2">
-                        Novo Cadastro
+                    <a href="{{ url_for('cadastro_bateria') }}" class="btn btn-outline-primary me-2">
+                        Nova Bateria
+                    </a>
+                    <a href="{{ url_for('cadastro_usuario') }}" class="btn btn-outline-primary me-2">
+                        Novo Usuario
                     </a>
                 </nav>
             </div>

@@ -141,22 +141,53 @@ def cadastro_bateria():
     return render_template('cadastro_bateria.html')
 
 def get_alerts (data):
+    conn = connect_db()
+    cursor = conn.cursor()
     alerts = []  # Lista para armazenar mensagens de alerta
     
     for entry in data:
-        temperatura = entry[6]
-        tensao = entry[4]
-        horario = entry[7]
+        temperature = entry[6]
+        timestamp = entry[7]
+        voltage = entry[4]
+        location = entry[3]
+        mac_address = entry[2]
         
-        # Verifique se a temperatura excede o limite
-        if temperatura > TEMPERATURA_LIMITE:
-            print("ALERTA")
-            alerts.append(f"Alerta: Temperatura alta de {temperatura}°C detectada no horario {horario}!")
+        # Verifica se um alerta de temperatura já foi registrado recentemente
+        if temperature > TEMPERATURA_LIMITE:
+            cursor.execute('''
+                SELECT * FROM alerts_log 
+                WHERE mac_address = ? AND category = 'Temperatura' 
+                AND alert_time > datetime('now', '-1 hour')
+            ''', (mac_address,))
+            existing_alert = cursor.fetchone()
 
-        # Verifique se a tensão excede o limite
-        if tensao > TENSAO_LIMITE:
-            alerts.append(f"Alerta: Tensão alta de {tensao}V detectada no horario {horario}!")
+            if not existing_alert:
+                alert_message = f"Temperatura alta: {temperature}°C detectada no horario {timestamp}!"
+                alerts.append(alert_message)
+                cursor.execute('''
+                    INSERT INTO alerts_log (mac_address, alert_message, category, alert_time, location)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (mac_address, alert_message, "Temperatura", timestamp, location))
 
+        # Verifica se um alerta de tensão já foi registrado recentemente
+        if voltage > TENSAO_LIMITE:
+            cursor.execute('''
+                SELECT * FROM alerts_log 
+                WHERE mac_address = ? AND category = 'Tensão' 
+                AND alert_time > datetime('now', '-1 hour')
+            ''', (mac_address,))
+            existing_alert = cursor.fetchone()
+
+            if not existing_alert:
+                alert_message = f"Tensão alta: {voltage}V detectada no horario {timestamp}!"
+                alerts.append(alert_message)
+                cursor.execute('''
+                    INSERT INTO alerts_log (mac_address, alert_message, category, alert_time, location)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (mac_address, alert_message, "Tensão", timestamp, location))
+
+    conn.commit()
+    conn.close()
     return alerts
 
 # Função para criar os gráficos

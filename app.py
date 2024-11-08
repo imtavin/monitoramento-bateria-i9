@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, redirect, send_file
-from reportlab.lib.pagesizes import A4
+from flask import Flask, render_template, request, redirect, send_file, url_for, Response
+from reportlab.lib.pagesizes import A4, letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
 import sqlite3
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
+from io import BytesIO
 
 app = Flask(__name__)
 
@@ -15,16 +16,6 @@ TENSAO_LIMITE = 13
 def connect_db():
     conn = sqlite3.connect('bateria.db')
     return conn
-
-# Função para obter baterias por localização
-def get_batteries_by_location(location):
-    conn = connect_db()
-    cursor = conn.cursor()
-    query = "SELECT mac_address, company_name FROM batteries WHERE location = ?"
-    cursor.execute(query, (location,))
-    batteries = cursor.fetchall()
-    conn.close()
-    return batteries
 
 # Função para obter os dados da bateria
 def get_battery_data(filters=None):
@@ -197,37 +188,79 @@ def create_graphs(data):
 
     data = sorted(data, key=lambda p: p[7], reverse=True)
 
-    # Certifique-se de que os índices estão corretos, com base em como seu dataset está estruturado
     timestamps = [row[7] for row in data]  # Timestamp
     voltages = [row[4] for row in data]    # Voltage
     resistances = [row[5] for row in data] # Resistance
-    temperatures = [row[6] for row in data] # Temperature (verifique se este índice é correto)
+    temperatures = [row[6] for row in data] # Temperature
 
     if data and len(data) > 1 and len(data[1]) > 1:
         company = data[1][1]
     else:
         company = "Dados insuficientes"
 
-    if data and len(data) > 1 and len(data[2]) > 1:
-        mac_address = data[1][2]
-    else:
-        mac_address = "Dados insuficientes"
-
-    print(data)
-
     fig = make_subplots(rows=3, cols=1, subplot_titles=('Voltage (V)', 'Resistance (Ω)', 'Temperature (°C)'))
 
-    # Adiciona os dados ao gráfico
     fig.add_trace(go.Scatter(x=timestamps, y=voltages, mode='lines', name='Voltage'), row=1, col=1)
     fig.add_trace(go.Scatter(x=timestamps, y=resistances, mode='lines', name='Resistance'), row=2, col=1)
     fig.add_trace(go.Scatter(x=timestamps, y=temperatures, mode='lines', name='Temperature'), row=3, col=1)
 
-    # Ajustar o layout
-    fig.update_layout(height=900, title_text="Saúde da Bateria pelo MAC Address: " + mac_address + " Localizado em: " + company, showlegend=False)
+    fig.update_layout(height=900, title_text="Saúde da Bateria", showlegend=False)
 
     return fig.to_html(full_html=False)
 
-@app.route('/', methods=['GET', 'POST'])
+# Função para gerar o PDF do relatório
+@app.route('/gerar-relatorio', methods=['GET'])
+def gerar_relatorio():
+    # Obter os filtros, se existirem
+    filters = request.args  # Obtém os filtros da URL (por exemplo, localização, tensão, etc.)
+    data = get_battery_data(filters)  # Obtém os dados da bateria de acordo com os filtros
+
+    # Criar o PDF em memória
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+
+    # Definir título do relatório
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(100, 750, "Relatório de Bateria - Dados de Saúde")
+
+    # Inserir os dados do gráfico no PDF
+    y_position = 730  # Posição inicial do texto
+
+    c.setFont("Helvetica", 12)
+    for entry in data:
+        mac_address = entry[2]
+        company = entry[1]
+        location = entry[3]
+        voltage = entry[4]
+        temperature = entry[6]
+        timestamp = entry[7]
+
+        # Adiciona informações ao PDF
+        c.drawString(100, y_position, f"MAC Address: {mac_address}")
+        c.drawString(100, y_position - 20, f"Localização: {location}")
+        c.drawString(100, y_position - 40, f"Empresa: {company}")
+        c.drawString(100, y_position - 60, f"Tensão: {voltage}V")
+        c.drawString(100, y_position - 80, f"Temperatura: {temperature}°C")
+        c.drawString(100, y_position - 100, f"Horário: {timestamp}")
+
+        y_position -= 120  # Ajusta a posição vertical para a próxima entrada
+
+        if y_position < 100:  # Se a página estiver quase cheia, cria uma nova página
+            c.showPage()
+            c.setFont("Helvetica-Bold", 16)
+            c.drawString(100, 750, "Relatório de Bateria - Dados de Saúde")
+            y_position = 730  # Reseta a posição para a nova página
+
+    # Salva o PDF no buffer
+    c.save()
+
+    # Rewind do buffer para leitura
+    buffer.seek(0)
+
+    # Envia o PDF como resposta para download
+    return Response(buffer, mimetype='application/pdf', headers={"Content-Disposition": "attachment;filename=relatorio_baterias.pdf"})
+
+@app.route('/')
 def index():
     filters = {}
     batteries = []
@@ -249,15 +282,12 @@ def index():
         # Obter dados filtrados
         data = get_battery_data(filters)
 
-        # Adicionando depuração para verificar os dados retornados
-        # print(data)
-
         # Gerar lista de baterias (endereços MAC e empresas) para a localização filtrada
         if data:
-            batteries = sorted(set([(row[2], row[1]) for row in data])) # (mac_address, company_name)
+            batteries = sorted(set([(row[2], row[1]) for row in data]))  # (mac_address, company_name)
             batteries_loc = sorted(set([row[3] for row in data]))  # Lista única e ordenada de localizações
         
-        # Verificar se um MAC Address foi selecionado
+        # Gerar gráfico e alertas
         if 'mac_address' in filters:
             graph = create_graphs(data)
             alerts = get_alerts(data)

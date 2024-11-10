@@ -7,7 +7,34 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
+    <!-- JavaScript para resetar as opções dos filtros -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const macSelect = document.getElementById('mac_filter');
+            const locationSelect = document.getElementById('location_filter');
+            
+            // Armazena as opções originais
+            const macOptions = Array.from(macSelect.options);
+            const locationOptions = Array.from(locationSelect.options);
+
+            // Função para resetar as opções em uma lista de seleção
+            function resetOptions(selectElement, originalOptions) {
+                selectElement.innerHTML = ""; // Limpa as opções atuais
+                originalOptions.forEach(option => selectElement.appendChild(option.cloneNode(true)));
+            }
+
+            // Event listeners para resetar o outro filtro ao mudar uma seleção
+            macSelect.addEventListener('change', () => {
+                resetOptions(locationSelect, locationOptions);
+            });
+
+            locationSelect.addEventListener('change', () => {
+                resetOptions(macSelect, macOptions);
+            });
+        });
+    </script>
 
     <!-- Cabeçalho -->
     <header class="bg-light text-dark p-3">
@@ -15,7 +42,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <a href="{{ url_for('index') }}"> 
                     <div class="header-logo">
-                        <img src= "/static/image/logo_without_back.png" alt="Logo" class="header-logo" class="header-logo">
+                        <img src= "/static/image/logo_without_back.png" alt="Logo" class="header-logo">
                     </div>
                 </a>    
                 <nav class="d-flex align-items-center">
@@ -32,7 +59,6 @@
 
     <!-- Conteúdo principal com gráficos -->
     <main class="container my-5">
-
         <form method="POST" action="/" class="my-4 p-3 bg-light rounded shadow">
             <div class="row">
                 <div class="col-md-4">
@@ -63,7 +89,7 @@
         
             <div class="text-center mt-3">
                 <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
-                <a href="/download-pdf" class="btn btn-secondary ms-2">Gerar Relatório</a>
+                <a href="/gerar-relatorio" class="btn btn-secondary ms-2">Gerar Relatório</a>
             </div>
         </form>
 
@@ -88,10 +114,7 @@
                 </div>
             </div>
         {% endif %}
-
-
     </main>
-
 
     <!-- Rodapé -->
     <footer class="bg-dark text-white text-center py-3">
@@ -101,35 +124,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const macSelect = document.getElementById('mac-address');
-            const locationSelect = document.getElementById('location');
-        
-            // Função para resetar as opções de filtros
-            function resetOptions(selectElement, options) {
-                selectElement.innerHTML = ""; // Limpa as opções atuais
-                options.forEach(option => selectElement.appendChild(option.cloneNode(true)));
-            }
-        
-            // Salva uma cópia das opções originais
-            const macOptions = Array.from(macSelect.options);
-            const locationOptions = Array.from(locationSelect.options);
-        
-            // Event listeners para resetar as opções quando qualquer filtro muda
-            macSelect.addEventListener('change', () => resetOptions(locationSelect, locationOptions));
-            locationSelect.addEventListener('change', () => resetOptions(macSelect, macOptions));
-        });
-    </script>
-
     {% block content %}
-    {% if alerts is defined and alerts%}
-        <script type=text/javascript>
-            const jsondata = JSON.parse('{{ alerts | tojson | safe}}');
+    {% if alerts is defined and alerts %}
+        <script type="text/javascript">
+            const jsondata = JSON.parse('{{ alerts | tojson | safe }}');
             alert(jsondata);
         </script>
     {% endif %}
     {% endblock %}
-
 </body>
 </html>

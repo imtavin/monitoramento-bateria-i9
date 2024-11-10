@@ -206,18 +206,51 @@ def create_graphs(data):
     resistances = [row[5] for row in data] # Resistance
     temperatures = [row[6] for row in data] # Temperature
 
-    if data and len(data) > 1 and len(data[1]) > 1:
-        company = data[1][1]
-    else:
-        company = "Dados insuficientes"
-
-    fig = make_subplots(rows=3, cols=1, subplot_titles=('Voltage (V)', 'Resistance (Ω)', 'Temperature (°C)'))
+    fig = make_subplots(rows=3, cols=1, subplot_titles=('Tensão (V)', 'Resistencia (Ω)', 'Temperatura (°C)'))
 
     fig.add_trace(go.Scatter(x=timestamps, y=voltages, mode='lines', name='Voltage'), row=1, col=1)
     fig.add_trace(go.Scatter(x=timestamps, y=resistances, mode='lines', name='Resistance'), row=2, col=1)
     fig.add_trace(go.Scatter(x=timestamps, y=temperatures, mode='lines', name='Temperature'), row=3, col=1)
 
-    fig.update_layout(height=900, title_text="Saúde da Bateria", showlegend=False)
+    fig.update_layout(height=1100, title_text="Saúde da Bateria", showlegend=False)
+
+    return fig.to_html(full_html=False)
+
+# Função para criar os gráficos
+def create_graphs_only_voltage(data):
+    if not data:
+        return "<p>Nenhum dado disponível</p>"
+
+    data = sorted(data, key=lambda p:(p[2], p[7]), reverse=True)
+
+    number_mac = 1
+    mac_address = []
+    mac_address.append((data[1][1],data[1][2]))
+    print(mac_address)
+    for row in data:
+        if row[2] not in [mac[1] for mac in mac_address]:
+            mac_address.append((row[1],row[2]))
+            number_mac += 1
+
+    print(data)
+    print(mac_address)
+    print(number_mac)
+    fig = make_subplots(rows=number_mac, cols=1, subplot_titles=[f"{company} - {mac}" for company, mac in mac_address])
+
+    i = 0
+    timestamps = []
+    voltages = []
+    for row in data:
+        timestamps.append(row[7])
+        voltages.append(row[4])
+        if row[2] != mac_address[i][1]:
+            fig.add_trace(go.Scatter(x=timestamps, y=voltages, mode='text+markers', name='Voltage'), row=i+1, col=1)
+            print(i)
+            i += 1
+    fig.add_trace(go.Scatter(x=timestamps, y=voltages, mode='text+markers', name='Voltage'), row=i+1, col=1)
+
+
+    fig.update_layout(height=1100, title_text="Pontos de tensão abaixo", showlegend=False)
 
     return fig.to_html(full_html=False)
 
@@ -276,8 +309,12 @@ def gerar_relatorio():
 @app.route('/', methods=['GET', 'POST'])
 def index():
     filters = {}
+    filters_loc = {}
     batteries = []
     batteries_loc = []
+    all_batteries_loc = []
+    all_batteries = []
+    data_with_location = []
 
     if request.method == 'POST':
         # Filtro por localização
@@ -295,24 +332,45 @@ def index():
         # Obter dados filtrados
         data = get_battery_data(filters)
 
+        # Obter dados sem filtros
+        data_without_filters = get_battery_data()
+
+        if request.form.get('location_filter'):
+            filters_loc['location'] = request.form['location_filter']
+            data_with_location = get_battery_data(filters_loc)
+
         # Gerar lista de baterias (endereços MAC e empresas) para a localização filtrada
-        if data:
-            batteries = sorted(set([(row[2], row[1]) for row in data]))  # (mac_address, company_name)
-            batteries_loc = sorted(set([row[3] for row in data]))  # Lista única e ordenada de localizações
+        if data_without_filters:
+            batteries = sorted(set([(row[2], row[1]) for row in data_without_filters]))  # (mac_address, company_name)
+            batteries_loc = sorted(set([row[3] for row in data_without_filters]))  # Lista única e ordenada de localizações
         
+        if data_with_location:
+            batteries = sorted(set([(row[2], row[1]) for row in data_with_location]))
+
         # Gerar gráfico e alertas
         if 'mac_address' in filters:
             graph = create_graphs(data)
             alerts = get_alerts(data)
+        elif 'voltage' in filters:
+            graph = create_graphs_only_voltage(data)
+            alerts = []
         else:
             graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
             alerts = []
 
-        return render_template('index.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters, alerts=alerts)
+        return render_template('index.html', graph=graph, filters=filters, batteries=batteries, batteries_loc=batteries_loc, alerts=alerts)
     
     # Se for um GET (sem filtro), carrega todos os dados
     data = get_battery_data()
-    graph = create_graphs(data)
+    graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
+
+    if data:
+        all_batteries = sorted(set([(row[2], row[1]) for row in data]))  # (mac_address, company_name)
+        all_batteries_loc = sorted(set([row[3] for row in data])) 
+    
+    batteries = all_batteries
+    batteries_loc = all_batteries_loc
+
     
     return render_template('index.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
 

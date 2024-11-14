@@ -43,6 +43,14 @@ main {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+.login-container{
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: auto;
+}
+
 .btn-primary {
     background-color: #007bff;
     border-color: #007bff;
@@ -53,10 +61,16 @@ main {
     border-color: #004085;
 }
 
+.container-fluid-w1000 {
+    max-width: 900px;
+}
+
 footer {
+    position: fixed;
     background: #343a40;
     color: #fff;
     position: relative;
+    left: 0;
     bottom: 0;
     width: 100%;
     padding: 10px 0;

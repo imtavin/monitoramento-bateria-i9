@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Usuário</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+</head>
+<body>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- SIDEBAR ---
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const toggleSidebar = document.getElementById('toggleSidebar');
+
+            // Função para inicializar a sidebar
+            function initializeSidebar() {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.add('collapsed');
+                    mainContent.classList.add('collapsed');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('collapsed');
+                }
+            }
+
+            // Executa a inicialização
+            initializeSidebar();
+            window.addEventListener('resize', initializeSidebar);
+
+
+                    // Alterna a classe 'active' na sidebar e no conteúdo principal
+            toggleSidebar.addEventListener('click', () => {
+                sidebar.classList.toggle('active');
+                mainContent.classList.toggle('sidebar-active');
+                toggleSidebar.classList.toggle('sidebar-active');
+            }); 
+        });
+
+        const footer = document.querySelector('footer');
+
+        // Alterna as classes de estado do rodapé junto com a sidebar
+        toggleSidebar.addEventListener('click', () => {
+            if (sidebar.classList.contains('collapsed')) {
+                footer.classList.remove('sidebar-active');
+                footer.classList.add('collapsed');
+            } else {
+                footer.classList.remove('collapsed');
+                footer.classList.add('sidebar-active');
+            }
+        });
+    </script>
+
+    <!-- Cabeçalho -->
+    <header class="bg-light text-dark d-flex align-items-center justify-content-between header-with-border">
+        <!-- Botão para alternar a sidebar -->
+        <button id="toggleSidebar" class="btn btn-outline-primary">☰</button>
+    
+        <!-- Logo alinhada à direita -->
+        <a href="{{ url_for('index') }}" class="header-logo">
+            <img src="{{ url_for('static', filename='image/logo_without_back.png') }}" alt="Logo" class="logo-right">
+        </a>
+    </header>
+    
+
+    <!-- Sidebar -->
+    <div class="sidebar d-flex flex-column align-items-start">
+        <div class="user-info w-100 text-center">
+            <h5>Bem-vindo, {{ session.get('username', 'Usuário') }}</h5>
+        </div>
+        <ul class="nav flex-column w-100">
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('cadastro_bateria') }}">
+                    <i class="fas fa-battery-half me-2"></i> Nova Bateria
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('cadastro_usuario') }}">
+                    <i class="fas fa-user-plus me-2"></i> Novo Usuário
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('editar_usuario') }}">
+                    <i class="fas fa-user-plus me-2"></i> Editar Usuário
+                </a>
+            </li>
+        </ul>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger logout-btn">Sair</a>
+    </div>
+
+    <!-- Conteúdo principal -->
+    <main class="container my-5">
+        <!-- Campo de busca do usuário -->
+        <div class="mb-4">
+            <label for="user_search" class="form-label">Buscar Usuário</label>
+            <input type="text" id="user_search" class="form-control" placeholder="Digite o nome ou ID do usuário">
+            <ul id="user_suggestions" class="list-group mt-2 d-none"></ul>
+        </div>
+
+        <!-- Formulário de edição -->
+        <form id="edit_form" method="POST" action="/editar-usuario" class="bg-light p-4 rounded shadow d-none">
+            <input type="hidden" id="user_id" name="user_id">
+            <h3 class="mb-4">Informações do Usuário</h3>
+
+            <!-- Nome do Usuário -->
+            <div class="mb-3">
+                <label for="username" class="form-label">Nome de Usuário</label>
+                <input type="text" class="form-control" id="username" name="username" readonly>
+            </div>
+
+            <!-- Função do Usuário -->
+            <div class="mb-3">
+                <label for="role" class="form-label">Função</label>
+                <input type="text" class="form-control" id="role" name="role" readonly>
+            </div>
+
+            <!-- MAC Addresses -->
+            <div class="mb-3">
+                <label for="mac_addresses" class="form-label">MAC Addresses</label>
+                <textarea 
+                    class="form-control" 
+                    id="mac_addresses" 
+                    name="mac_addresses" 
+                    rows="4" 
+                    placeholder="Insira os endereços MAC separados por vírgulas..."></textarea>
+                <small class="text-muted">Insira múltiplos MAC Addresses separados por vírgulas.</small>
+            </div>
+
+            <!-- Botões -->
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                <button type="button" id="cancel_button" class="btn btn-secondary">Cancelar</button>
+            </div>
+        </form>
+    </main>
+
+    <!-- Rodapé -->
+    <footer>
+        <p>&copy; 2024 Battery Monitoring System | i9+ Baterias Elétricas e Energias</p>
+        <p><a href="mailto:email@example.com" class="text-white">Contact Us</a></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const userSearch = document.getElementById('user_search');
+            const suggestions = document.getElementById('user_suggestions');
+            const editForm = document.getElementById('edit_form');
+            const cancelButton = document.getElementById('cancel_button');
+
+            // Evento para buscar sugestões de usuário
+            userSearch.addEventListener('input', async () => {
+                const query = userSearch.value.trim();
+                if (query.length > 2) {
+                    const response = await fetch(`/api/users?search=${query}`);
+                    const users = await response.json();
+                    suggestions.innerHTML = '';
+                    if (users.length) {
+                        suggestions.classList.remove('d-none');
+                        users.forEach(user => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item list-group-item-action';
+                            li.textContent = `${user.username} (ID: ${user.id})`;
+                            li.dataset.userId = user.id;
+                            suggestions.appendChild(li);
+                        });
+                    }
+                } else {
+                    suggestions.classList.add('d-none');
+                }
+            });
+
+            // Evento ao selecionar um usuário
+            suggestions.addEventListener('click', async (e) => {
+                if (e.target.tagName === 'LI') {
+                    const userId = e.target.dataset.userId;
+                    const response = await fetch(`/api/users/${userId}`);
+                    const user = await response.json();
+
+                    document.getElementById('username').value = user.username;
+                    document.getElementById('role').value = user.role === 'admin' ? 'Administrador' : 'Usuário Padrão';
+                    document.getElementById('mac_addresses').value = user.mac_addresses.join(', ');
+
+                    editForm.action = `/editar-usuario/${user.id}`;
+                    editForm.classList.remove('d-none');
+                    suggestions.classList.add('d-none');
+                    userSearch.value = '';
+                }
+            });
+
+            // Ocultar o formulário ao cancelar
+            cancelButton.addEventListener('click', () => {
+                editForm.classList.add('d-none');
+            });
+        });
+
+        suggestions.addEventListener('click', async (e) => {
+            if (e.target.tagName === 'LI') {
+                const userId = e.target.dataset.userId;
+                const response = await fetch(`/api/users/${userId}`);
+                const user = await response.json();
+
+                document.getElementById('user_id').value = user.id; // Preencher o ID oculto
+                document.getElementById('username').value = user.username;
+                document.getElementById('role').value = user.role === 'admin' ? 'Administrador' : 'Usuário Padrão';
+                document.getElementById('mac_addresses').value = user.mac_addresses.join(', ');
+
+                editForm.classList.remove('d-none');
+                suggestions.classList.add('d-none');
+                userSearch.value = '';
+            }
+        });
+    </script>
+</body>
+</html>

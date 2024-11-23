@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, send_file, url_for, Response, session, flash
+from flask import Flask, render_template, request, redirect, send_file, url_for, Response, session, flash, jsonify
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
@@ -299,33 +299,65 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@app.route('/editar-usuario/<int:user_id>', methods=['GET', 'POST'])
+# API para usuarios
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    query = request.args.get('search', '').lower()
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users WHERE LOWER(username) LIKE ?", (f"%{query}%",))
+    users = [{"id": row[0], "username": row[1]} for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(users)
+
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "User not found"}), 404
+    user = {
+        "id": row[0],
+        "username": row[1],
+        "role": row[3],
+        "mac_addresses": json.loads(row[4]) if row[4] else []
+    }
+    return jsonify(user)
+
+@app.route('/editar-usuario/', methods=['GET'])
 @admin_required
-def editar_usuario(user_id):
+def editar_usuario():
+    # GET: exibir página inicial de edição de usuários
+    return render_template('editar_usuario.html')
+
+@app.route('/editar-usuario/<int:user_id>', methods=['POST'])
+@admin_required
+def atualizar_usuario(user_id):
     conn = connect_db()
     cursor = conn.cursor()
 
     if request.method == 'POST':
+        # Receber os dados do formulário
         mac_addresses = request.form.get('mac_addresses', '').split(',')
         mac_addresses = [mac.strip() for mac in mac_addresses if mac.strip()]
         mac_addresses_json = json.dumps(mac_addresses)
 
-        cursor.execute("UPDATE users SET mac_addresses = ? WHERE id = ?", (mac_addresses_json, user_id))
+        # Atualizar os dados do usuário no banco
+        cursor.execute(
+            "UPDATE users SET mac_addresses = ? WHERE id = ?", 
+            (mac_addresses_json, user_id)
+        )
         conn.commit()
         conn.close()
+
         flash('Dados do usuário atualizados com sucesso!', 'success')
         return redirect(url_for('index'))
 
-    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-    user = {
-        "id": user[0],
-        "username": user[1],
-        "role": user[3],
-        "mac_addresses": json.loads(user[4]) if user[4] else []
-    }
-    return render_template('editar_usuario.html', user=user)
+    # GET: exibir página inicial de edição de usuários
+    return render_template('editar_usuario.html')
 
 # Rota para cadastro de usuários
 @app.route('/cadastro-usuario', methods=['GET', 'POST'])

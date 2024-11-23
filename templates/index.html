@@ -5,16 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Battery Health Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 </head>
 
 <body>
-    <!-- JavaScript para resetar as opções dos filtros -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // --- FILTROS ---
             const macSelect = document.getElementById('mac_filter');
             const locationSelect = document.getElementById('location_filter');
-            
+
             // Armazena as opções originais
             const macOptions = Array.from(macSelect.options);
             const locationOptions = Array.from(locationSelect.options);
@@ -37,87 +38,104 @@
     </script>
 
     <!-- Cabeçalho -->
-    <header class="bg-light text-dark p-3">
-        <div class="container">
-            <div class="d-flex justify-content-between align-items-center">
-                <a href="{{ url_for('index') }}"> 
-                    <div class="header-logo">
-                        <img src= "/static/image/logo_without_back.png" alt="Logo" class="header-logo">
-                    </div>
-                </a>    
-                <nav class="d-flex align-items-center">
-                    <a href="{{ url_for('cadastro_bateria') }}" class="btn btn-outline-primary me-2">
-                        Nova Bateria
-                    </a>
-                    <a href="{{ url_for('cadastro_usuario') }}" class="btn btn-outline-primary me-2">
-                        Novo Usuario
-                    </a>
-                </nav>
-            </div>
-        </div>
+    <header class="bg-light text-dark d-flex align-items-center justify-content-between">
+        <!-- Botão para alternar a sidebar -->
+        <button id="toggleSidebar" class="btn btn-outline-primary">☰</button>
+    
+        <!-- Logo alinhada à direita -->
+        <a href="{{ url_for('index') }}" class="header-logo">
+            <img src="{{ url_for('static', filename='image/logo_without_back.png') }}" alt="Logo" class="logo-right">
+        </a>
     </header>
+    
+    <!-- Sidebar -->
+    <div class="sidebar d-flex flex-column align-items-start">
+        <div class="user-info w-100 text-center">
+            <h5>Bem-vindo, {{ session.get('username', 'Usuário') }}</h5>
+        </div>
+        <ul class="nav flex-column w-100">
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('cadastro_bateria') }}">
+                    <i class="fas fa-battery-half me-2"></i> Nova Bateria
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('cadastro_usuario') }}">
+                    <i class="fas fa-user-plus me-2"></i> Novo Usuário
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('editar_usuario') }}">
+                    <i class="fas fa-user-plus me-2"></i> Editar Usuário
+                </a>
+            </li>
+        </ul>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger logout-btn">Sair</a>
+    </div>
 
     <!-- Conteúdo principal com gráficos -->
-    <main class="container my-5">
-        <form method="POST" action="/" class="my-4 p-3 bg-light rounded shadow">
-            <div class="row">
-                <div class="col-md-4">
-                    <label for="voltage_filter" class="form-label">Tensão menor que (V):</label>
-                    <input type="number" id="voltage_filter" name="voltage_filter" class="form-control" placeholder="Digite a tensão">
+    <div class="main-content">
+        <main class="container my-5">
+            <form method="POST" action="/" class="my-4 p-3 bg-light rounded shadow">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="voltage_filter" class="form-label">Tensão menor que (V):</label>
+                        <input type="number" id="voltage_filter" name="voltage_filter" class="form-control" placeholder="Digite a tensão">
+                    </div>
+            
+                    <div class="col-md-4">
+                        <label for="location_filter" class="form-label">Localização:</label>
+                        <select id="location_filter" name="location_filter" class="form-control">
+                            <option value="" {% if not filters.location %}selected{% endif %}>Selecione uma localização</option>
+                            {% for location in batteries_loc %}
+                                <option value="{{ location }}" {% if filters.location == location %}selected{% endif %}>{{ location }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+            
+                    <div class="col-md-4">
+                        <label for="mac_filter" class="form-label">Endereço MAC:</label>
+                        <select id="mac_filter" name="mac_filter" class="form-control">
+                            <option value="" {% if not filters.mac_address %}selected{% endif %}>Selecione um MAC</option>
+                            {% for mac, company in batteries %}
+                                <option value="{{ mac }}" {% if filters.mac_address == mac %}selected{% endif %}>{{ company }} ({{ mac }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
-        
-                <div class="col-md-4">
-                    <label for="location_filter" class="form-label">Localização:</label>
-                    <select id="location_filter" name="location_filter" class="form-control">
-                        <option value="" {% if not filters.location %}selected{% endif %}>Selecione uma localização</option>
-                        {% for location in batteries_loc %}
-                            <option value="{{ location }}" {% if filters.location == location %}selected{% endif %}>{{ location }}</option>
-                        {% endfor %}
-                    </select>
+            
+                <div class="text-center mt-3">
+                    <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+                    <a href="/gerar-relatorio" class="btn btn-secondary ms-2">Gerar Relatório</a>
                 </div>
-        
-                <div class="col-md-4">
-                    <label for="mac_filter" class="form-label">Endereço MAC:</label>
-                    <select id="mac_filter" name="mac_filter" class="form-control">
-                        <option value="" {% if not filters.mac_address %}selected{% endif %}>Selecione um MAC</option>
-                        {% for mac, company in batteries %}
-                            <option value="{{ mac }}" {% if filters.mac_address == mac %}selected{% endif %}>{{ company }} ({{ mac }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-        
-            <div class="text-center mt-3">
-                <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
-                <a href="/gerar-relatorio" class="btn btn-secondary ms-2">Gerar Relatório</a>
-            </div>
-        </form>
+            </form>
 
-        {% if alerts %}
-            <div class="alert alert-danger" role="alert">
-                {% for alerta in alerts %}
-                    <p>{{ alerta }}</p>
-                {% endfor %}
-            </div>
-        {% endif %}
-        
-        <!-- Mensagem de feedback se nenhuma bateria for encontrada -->
-        {% if filters.location and not batteries %}
-            <p class="text-danger text-center mt-3">Nenhuma bateria encontrada para a localização "{{ filters.location }}"</p>
-        {% endif %}
-        
-        <!-- Gráficos -->
-        {% if graph %}
-            <div class="row mt-5">
-                <div class="col-md-12">
-                    {{ graph|safe }}
+            {% if alerts %}
+                <div class="alert alert-danger" role="alert">
+                    {% for alerta in alerts %}
+                        <p>{{ alerta }}</p>
+                    {% endfor %}
                 </div>
-            </div>
-        {% endif %}
-    </main>
+            {% endif %}
+            
+            <!-- Mensagem de feedback se nenhuma bateria for encontrada -->
+            {% if filters.location and not batteries %}
+                <p class="text-danger text-center mt-3">Nenhuma bateria encontrada para a localização "{{ filters.location }}"</p>
+            {% endif %}
+            
+            <!-- Gráficos -->
+            {% if graph %}
+                <div class="row mt-5">
+                    <div class="col-md-12">
+                        {{ graph|safe }}
+                    </div>
+                </div>
+            {% endif %}
+        </main>
+    </div>
 
     <!-- Rodapé -->
-    <footer class="bg-dark text-white text-center py-3">
+    <footer>
         <p>&copy; 2024 Battery Monitoring System | i9+ Baterias Elétricas e Energias</p>
         <p><a href="mailto:email@example.com" class="text-white">Contact Us</a></p>
     </footer>

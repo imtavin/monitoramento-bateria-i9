@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, send_file, url_for, Response
+from flask import Flask, render_template, request, redirect, send_file, url_for, Response, session, flash, jsonify
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.pdfgen import canvas
 from io import BytesIO
@@ -6,9 +6,12 @@ import sqlite3
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from io import BytesIO
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+import json
 
 app = Flask(__name__)
+app.secret_key = "5d41402abc4b2a76b9719d911017c592"
 
 TEMPERATURA_LIMITE = 40  
 TENSAO_LIMITE = 13    
@@ -42,6 +45,7 @@ def get_battery_data(filters=None):
 
     cursor.execute(query, params)
     data = cursor.fetchall()
+    conn.commit()
     conn.close()
     return data
 
@@ -50,6 +54,7 @@ def fetch_battery_data():
     cursor = conn.cursor()
     cursor.execute("SELECT mac_address, company_name, location, resistance, voltage, temperature FROM batteries")
     data = cursor.fetchall()
+    conn.commit()
     conn.close()
     return data
 
@@ -111,87 +116,63 @@ def download_pdf():
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name="relatorio_baterias.pdf", mimetype='application/pdf')
 
-@app.route('/cadastro-usuario', methods=['GET', 'POST'])
-def cadastro_usuario():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = generate_password_hash(request.form['password'])
-        role = request.form['role']
-
-        conn = connect_db()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", (username, password, role))
-        conn.commit()
-        conn.close()
-    return render_template('cadastro_usuario.html')
-
-# Função para cadastrar novas baterias
-@app.route('/cadastro-bateria', methods=['GET', 'POST'])
-def cadastro_bateria():
-    if request.method == 'POST':
-        company_name = request.form['company_name']
-        mac_address = request.form['mac_address']
-        location = request.form['location']
-
-        conn = connect_db()
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO batteries (company_name, mac_address, location) VALUES (?, ?, ?)", 
-                       (company_name, mac_address, location))
-        conn.commit()
-        conn.close()
-
-        return redirect('index')  # Redireciona para a página principal após o cadastro
-
-    return render_template('cadastro_bateria.html')
-
-def get_alerts (data):
+def get_alerts(data):
     conn = connect_db()
     cursor = conn.cursor()
     alerts = []  # Lista para armazenar mensagens de alerta
-    
+
     for entry in data:
         temperature = entry[6]
         timestamp = entry[7]
         voltage = entry[4]
         location = entry[3]
         mac_address = entry[2]
-        
-        # Verifica se um alerta de temperatura já foi registrado recentemente
-        if temperature > TEMPERATURA_LIMITE:
-            cursor.execute('''
-                SELECT * FROM alerts_log 
-                WHERE mac_address = ? AND category = 'Temperatura' 
-                AND alert_time > datetime('now', '-1 hour')
-            ''', (mac_address,))
-            existing_alert = cursor.fetchone()
 
-            if not existing_alert:
+        print(f"Verificando alertas para MAC: {mac_address}, Localização: {location}, Timestamp: {timestamp}")
+
+        # Verifica se já existe um alerta idêntico para temperatura
+        cursor.execute('''
+            SELECT * FROM alerts_log 
+            WHERE mac_address = ? AND category = 'Temperatura' AND alert_time = ? AND location = ?
+        ''', (mac_address, timestamp, location))
+        existing_temp_alert = cursor.fetchone()
+
+        if temperature > TEMPERATURA_LIMITE:
+            if not existing_temp_alert:
                 alert_message = f"Temperatura alta: {temperature}°C detectada no horario {timestamp}!"
                 alerts.append(alert_message)
                 cursor.execute('''
                     INSERT INTO alerts_log (mac_address, alert_message, category, alert_time, location)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (mac_address, alert_message, "Temperatura", timestamp, location))
+                print(f"Novo alerta de temperatura inserido: {alert_message}")
+            else:
+                print(f"Alerta de temperatura existente encontrado: {existing_temp_alert}")
 
-        # Verifica se um alerta de tensão já foi registrado recentemente
+        # Verifica se já existe um alerta idêntico para tensão
+        cursor.execute('''
+            SELECT * FROM alerts_log 
+            WHERE mac_address = ? AND category = 'Tensão' AND alert_time = ? AND location = ?
+        ''', (mac_address, timestamp, location))
+        existing_voltage_alert = cursor.fetchone()
+
         if voltage > TENSAO_LIMITE:
-            cursor.execute('''
-                SELECT * FROM alerts_log 
-                WHERE mac_address = ? AND category = 'Tensão' 
-                AND alert_time > datetime('now', '-1 hour')
-            ''', (mac_address,))
-            existing_alert = cursor.fetchone()
-
-            if not existing_alert:
+            if not existing_voltage_alert:
                 alert_message = f"Tensão alta: {voltage}V detectada no horario {timestamp}!"
                 alerts.append(alert_message)
                 cursor.execute('''
                     INSERT INTO alerts_log (mac_address, alert_message, category, alert_time, location)
                     VALUES (?, ?, ?, ?, ?)
                 ''', (mac_address, alert_message, "Tensão", timestamp, location))
+                print(f"Novo alerta de tensão inserido: {alert_message}")
+            else:
+                print(f"Alerta de tensão existente encontrado: {existing_voltage_alert}")
 
     conn.commit()
     conn.close()
+
+    # Log final dos alertas gerados
+    print(f"Alertas retornados: {alerts}")
     return alerts
 
 # Função para criar os gráficos
@@ -306,7 +287,172 @@ def gerar_relatorio():
     # Envia o PDF como resposta para download
     return Response(buffer, mimetype='application/pdf', headers={"Content-Disposition": "attachment;filename=relatorio_baterias.pdf"})
 
+# Decorador para verificar login
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Você precisa fazer login para acessar esta página.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# Decorador para verificar se o usuário é admin
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('role') != 'admin':
+            flash('Acesso negado. Apenas administradores podem acessar esta página.', 'danger')
+            return redirect(url_for('user_dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# API para usuarios
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    query = request.args.get('search', '').lower()
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users WHERE LOWER(username) LIKE ?", (f"%{query}%",))
+    users = [{"id": row[0], "username": row[1]} for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(users)
+
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"error": "User not found"}), 404
+    user = {
+        "id": row[0],
+        "username": row[1],
+        "role": row[3],
+        "mac_addresses": json.loads(row[4]) if row[4] else []
+    }
+    return jsonify(user)
+
+@app.route('/editar-usuario/', methods=['GET'])
+@admin_required
+def editar_usuario():
+    # GET: exibir página inicial de edição de usuários
+    return render_template('editar_usuario.html')
+
+@app.route('/editar-usuario/<int:user_id>', methods=['POST'])
+@admin_required
+def atualizar_usuario(user_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    if request.method == 'POST':
+        # Receber os dados do formulário
+        mac_addresses = request.form.get('mac_addresses', '').split(',')
+        mac_addresses = [mac.strip() for mac in mac_addresses if mac.strip()]
+        mac_addresses_json = json.dumps(mac_addresses)
+
+        # Atualizar os dados do usuário no banco
+        cursor.execute(
+            "UPDATE users SET mac_addresses = ? WHERE id = ?", 
+            (mac_addresses_json, user_id)
+        )
+        conn.commit()
+        conn.close()
+
+        flash('Dados do usuário atualizados com sucesso!', 'success')
+        return redirect(url_for('index'))
+
+    # GET: exibir página inicial de edição de usuários
+    return render_template('editar_usuario.html')
+
+# Rota para cadastro de usuários
+@app.route('/cadastro-usuario', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def cadastro_usuario():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+        role = request.form['role']
+        mac_addresses = request.form.get('mac_addresses', '').split(',')
+
+        # Remove espaços e salva como JSON
+        mac_addresses = [mac.strip() for mac in mac_addresses if mac.strip()]
+        mac_addresses_json = json.dumps(mac_addresses)
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (username, password, role, mac_addresses) VALUES (?, ?, ?, ?)",
+            (username, password, role, mac_addresses_json)
+        )
+        conn.commit()
+        conn.close()
+    return render_template('cadastro_usuario.html')
+
+# Rota para cadastro de baterias
+@app.route('/cadastro-bateria', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def cadastro_bateria():
+    if request.method == 'POST':
+        company_name = request.form['company_name']
+        mac_address = request.form['mac_address']
+        location = request.form['location']
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO batteries (company_name, mac_address, location) VALUES (?, ?, ?)", 
+                       (company_name, mac_address, location))
+        conn.commit()
+        conn.close()
+
+        return redirect('index')  # Redireciona para a página principal após o cadastro
+
+    return render_template('cadastro_bateria.html')
+
+# Rota para logout
+@app.route('/logout')
+def logout():
+    session.clear()  # Remove todas as informações da sessão
+    flash('Você saiu da sua conta.', 'info')
+    return redirect(url_for('login'))
+
+# Rota para login 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+        conn.commit()
+        conn.close()
+
+        if user and check_password_hash(user[2], password):  # user[2] é a senha hash
+            session['user_id'] = user[0]  # user[0] é o ID do usuário
+            session['username'] = user[1]  # user[1] é o nome do usuário
+            session['role'] = user[3]  # user[3] é o papel (admin ou user)
+            flash('Login realizado com sucesso!', 'success')
+
+            if user[3] == 'admin':
+                return redirect(url_for('index'))  # Administrador vai para a tela principal
+            else:
+                return redirect(url_for('user_dashboard'))  # Usuário comum vai para outra tela
+        else:
+            flash('Credenciais inválidas. Tente novamente.', 'danger')
+
+    return render_template('login.html')
+
 @app.route('/', methods=['GET', 'POST'])
+@login_required
+@admin_required
 def index():
     filters = {}
     filters_loc = {}
@@ -357,6 +503,8 @@ def index():
         else:
             graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
             alerts = []
+        
+        print(alerts)
 
         return render_template('index.html', graph=graph, filters=filters, batteries=batteries, batteries_loc=batteries_loc, alerts=alerts)
     
@@ -374,6 +522,94 @@ def index():
     
     return render_template('index.html', graph=graph, batteries=batteries, batteries_loc=batteries_loc, filters=filters)
 
+@app.route('/user_dashboard', methods=['GET', 'POST'])
+@login_required
+def user_dashboard():
+    # Obtém o usuário logado
+    user_id = session.get('user_id')
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # Busca os MAC Addresses permitidos para o usuário logado
+    cursor.execute("SELECT mac_addresses FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+
+    filters = {}
+    all_batteries = []
+    all_batteries_loc = []
+    batteries = []
+    batteries_loc = []
+
+    # Obter MAC Addresses permitidos para o usuário logado
+    user_mac_addresses = json.loads(user[0]) if user[0] else []  # Carregar da sessão
+
+    # Obter todos os dados disponíveis
+    all_data = get_battery_data()
+
+    # Filtrar baterias e localizações permitidas para o usuário
+    all_batteries = sorted(set([(row[2], row[1]) for row in all_data if row[2] in user_mac_addresses]))
+    all_batteries_loc = sorted(set([row[3] for row in all_data if row[2] in user_mac_addresses]))
+
+    if request.method == 'POST':
+        # Filtro por localização
+        if request.form.get('location_filter'):
+            filters['location'] = request.form['location_filter']
+
+        # Filtro por tensão
+        if request.form.get('voltage_filter'):
+            filters['voltage'] = request.form['voltage_filter']
+
+        # Filtro por MAC Address
+        if request.form.get('mac_filter'):
+            filters['mac_address'] = request.form['mac_filter']
+
+        # Obter dados filtrados
+        data = get_battery_data(filters)
+
+        # Atualizar lista de baterias com base na localização
+        if 'location' in filters:
+            batteries = sorted(set([
+                (row[2], row[1]) for row in all_data
+                if row[3] == filters['location'] and row[2] in user_mac_addresses
+            ]))
+        else:
+            batteries = all_batteries
+
+        # Atualizar lista de localizações com base nos dados filtrados
+        batteries_loc = sorted(set([
+            row[3] for row in all_data if row[2] in user_mac_addresses
+        ]))
+
+        # Gerar gráficos e alertas
+        if 'mac_address' in filters:
+            graph = create_graphs(data)
+            alerts = get_alerts(data)
+        else:
+            graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
+            alerts = []
+
+        return render_template(
+            'user_dashboard.html',
+            graph=graph,
+            filters=filters,
+            batteries=batteries,
+            batteries_loc=batteries_loc,
+            alerts=alerts
+        )
+
+    # Configuração inicial para GET
+    graph = "<p>Selecione um MAC Address para visualizar o gráfico.</p>"
+    batteries = all_batteries
+    batteries_loc = all_batteries_loc
+
+    return render_template(
+        'user_dashboard.html',
+        graph=graph,
+        batteries=batteries,
+        batteries_loc=batteries_loc,
+        filters=filters
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

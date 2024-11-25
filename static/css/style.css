@@ -1,0 +1,256 @@
+/* Estilos personalizados */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f8f9fa;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; 
+    padding: 15px 70px;
+    background-color: #007bff; 
+    border-bottom: 4px solid #007bff; 
+}
+
+header .header-logo img {
+    width: 160px; 
+    height: auto;
+}
+
+
+header .header-logo {
+    margin-left: auto; 
+}
+
+header .btn-outline-primary {
+    border-color: #007bff;
+    color: #007bff;
+    transition: all 0.3s ease;
+}
+
+header .btn-outline-primary:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+main {
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-container {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.login-container{
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: auto;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+}
+
+.container-fluid-w1000 {
+    max-width: 900px;
+}
+
+footer {
+    position: fixed;
+    bottom: 0;
+    left: 0; /* Define o ponto inicial */
+    background: #343a40;
+    color: #fff;
+    width: 100%; /* Ocupa toda a largura */
+    padding: 10px 0;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+footer.sidebar-active {
+    margin-left: 250px; /* Move o rodapé quando a sidebar está ativa */
+    width: calc(100% - 250px);
+}
+
+footer.collapsed {
+    margin-left: 80px; /* Ajuste para a sidebar recolhida */
+    width: calc(100% - 80px);
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+#toggleSidebar {
+    position: absolute; /* Fixar o botão em uma posição específica */
+    left: 30px; /* Fica na borda quando sidebar recolhida */
+    z-index: 1100; /* Acima da sidebar */
+    transition: left 0.3s ease;
+}
+
+#toggleSidebar.sidebar-active {
+    left: 265px; /* Ajusta o botão para a posição da sidebar expandida */
+}
+
+/* Estilo base da sidebar */
+.sidebar {
+    height: 100vh;
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: -250px; /* Oculta inicialmente */
+    background-color: #007bff; /* Azul */
+    color: white;
+    transition: all 0.3s ease; /* Animação suave */
+    z-index: 1000;
+    padding: 15px 0;
+    border-right: 2px solid #0056b3; /* Adiciona uma borda lateral */
+    box-shadow: 3px 0 8px rgba(0, 0, 0, 0.2); /* Adiciona sombra */
+}
+
+/* Sidebar visível */
+.sidebar.active {
+    left: 0;
+}
+
+/* Sidebar recolhida */
+.sidebar.collapsed {
+    width: 80px;
+    text-align: center; /* Centraliza os itens */
+    overflow-x: hidden; /* Esconde texto extra */
+}
+
+/* Itens da sidebar */
+.sidebar .nav-link {
+    color: white;
+    font-size: 1rem;
+    padding: 10px 15px;
+    transition: all 0.2s ease;
+    border-radius: 8px; /* Arredonda os botões */
+    margin: 5px 0;
+}
+
+.sidebar .nav-link:hover {
+    background-color: #0056b3;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Adiciona sombra ao hover */
+}
+
+/* Ícones da sidebar recolhida */
+.sidebar.collapsed .nav-link {
+    padding: 10px; /* Espaço reduzido */
+    font-size: 1.2rem; /* Ajuste de tamanho */
+}
+
+/* User Info */
+.sidebar .user-info {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 10px;
+}
+
+/* Botão de logout */
+.logout-btn {
+    position: absolute;
+    bottom: 20px;
+    width: 90%;
+    left: 5%;
+    background: #dc3545; /* Vermelho */
+    color: white;
+    font-weight: bold;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: #b52d3a; /* Vermelho mais escuro no hover */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Conteúdo principal */
+.main-content {
+    margin-left: 0; /* Sem espaço quando a sidebar está escondida */
+    transition: margin-left 0.3s ease;
+}
+
+/* Quando a sidebar está ativa */
+.main-content.sidebar-active {
+    margin-left: 250px; /* Dá espaço para a sidebar */
+}
+
+.main-content.collapsed {
+    margin-left: 80px; /* Largura ajustada da sidebar recolhida */
+}
+
+.sidebar .nav-link i {
+    margin-right: 10px; /* Espaço entre ícone e texto */
+}
+
+.sidebar.collapsed .nav-link i {
+    margin-right: 0; /* Remove espaço ao recolher */
+}
+
+.sidebar.collapsed .nav-link span {
+    display: none; /* Esconde o texto ao recolher */
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .sidebar {
+        left: -250px;
+    }
+
+    .sidebar.collapsed {
+        left: 0;
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .main-content.collapsed {
+        margin-left: 250px;
+    }
+
+    .main-content.sidebar-active {
+        margin-left: 0; /* Sidebar sobrepõe o conteúdo */
+    }
+}
+
+/* Ajustes para telas menores */
+@media (max-width: 600px) {
+    header {
+        justify-content: left;
+        text-align: left;
+    }
+
+    header .logo {
+        margin: 0 auto px auto; 
+        height: 40px;
+        justify-content: right; 
+    }
+
+    header h1 {
+        font-size: 20px;
+        text-align: left;
+    }
+}
+
+

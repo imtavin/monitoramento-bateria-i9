@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battery Health Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+</head>
+
+<body>
+    <!-- JavaScript para resetar as opções dos filtros -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const macSelect = document.getElementById('mac_filter');
+            const locationSelect = document.getElementById('location_filter');
+            
+            // Armazena as opções originais
+            const macOptions = Array.from(macSelect.options);
+            const locationOptions = Array.from(locationSelect.options);
+
+            // Função para resetar as opções em uma lista de seleção
+            function resetOptions(selectElement, originalOptions) {
+                selectElement.innerHTML = ""; // Limpa as opções atuais
+                originalOptions.forEach(option => selectElement.appendChild(option.cloneNode(true)));
+            }
+
+            // Event listeners para resetar o outro filtro ao mudar uma seleção
+            macSelect.addEventListener('change', () => {
+                resetOptions(locationSelect, locationOptions);
+            });
+
+            locationSelect.addEventListener('change', () => {
+                resetOptions(macSelect, macOptions);
+            });
+
+            // --- SIDEBAR ---
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const toggleSidebar = document.getElementById('toggleSidebar');
+
+            // Função para inicializar a sidebar
+            function initializeSidebar() {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.add('collapsed');
+                    mainContent.classList.add('collapsed');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('collapsed');
+                }
+            }
+
+            // Executa a inicialização
+            initializeSidebar();
+            window.addEventListener('resize', initializeSidebar);
+
+
+                    // Alterna a classe 'active' na sidebar e no conteúdo principal
+            toggleSidebar.addEventListener('click', () => {
+                sidebar.classList.toggle('active');
+                mainContent.classList.toggle('sidebar-active');
+                toggleSidebar.classList.toggle('sidebar-active');
+            }); 
+        });
+
+        const footer = document.querySelector('footer');
+
+        // Alterna as classes de estado do rodapé junto com a sidebar
+        toggleSidebar.addEventListener('click', () => {
+            if (sidebar.classList.contains('collapsed')) {
+                footer.classList.remove('sidebar-active');
+                footer.classList.add('collapsed');
+            } else {
+                footer.classList.remove('collapsed');
+                footer.classList.add('sidebar-active');
+            }
+        });
+    </script>
+
+    <!-- Cabeçalho -->
+    <header class="bg-light text-dark d-flex align-items-center justify-content-between header-with-border">
+        <!-- Botão para alternar a sidebar -->
+        <button id="toggleSidebar" class="btn btn-outline-primary">☰</button>
+
+        <!-- Logo alinhada à direita -->
+        <a href="{{ url_for('index') }}" class="header-logo">
+            <img src="{{ url_for('static', filename='image/logo_without_back.png') }}" alt="Logo" class="logo-right">
+        </a>
+    </header>
+
+
+    <!-- Sidebar -->
+    <div class="sidebar d-flex flex-column align-items-start">
+        <div class="user-info w-100 text-center">
+            <h5>Bem-vindo, {{ session.get('username', 'Usuário') }}</h5>
+        </div>
+        <ul class="nav flex-column w-100">
+        </ul>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger logout-btn">Sair</a>
+    </div>
+
+    <!-- Conteúdo principal com gráficos -->
+    <main class="container my-5">
+        <form method="POST" action="{{ url_for('user_dashboard') }}" class="my-4 p-3 bg-light rounded shadow">
+            <div class="row align-items-center justify-content-between">
+                <div class="col-md-4">
+                    <label for="location_filter" class="form-label">Localização:</label>
+                    <select id="location_filter" name="location_filter" class="form-control">
+                        <option value="" {% if not filters.location %}selected{% endif %}>Selecione uma localização</option>
+                        {% for location in batteries_loc %}
+                            <option value="{{ location }}" {% if filters.location == location %}selected{% endif %}>{{ location }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+        
+                <div class="col-md-4">
+                    <label for="mac_filter" class="form-label">Endereço MAC:</label>
+                    <select id="mac_filter" name="mac_filter" class="form-control">
+                        <option value="" {% if not filters.mac_address %}selected{% endif %}>Selecione um MAC</option>
+                        {% for mac, company in batteries %}
+                            <option value="{{ mac }}" {% if filters.mac_address == mac %}selected{% endif %}>{{ company }} ({{ mac }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        
+            <div class="text-center mt-3">
+                <button type="submit" class="btn btn-primary">Aplicar Filtros</button>
+                <a href="/gerar-relatorio" class="btn btn-secondary ms-2">Gerar Relatório</a>
+            </div>
+        </form>
+
+        {% if alerts %}
+            <div class="alert alert-danger" role="alert">
+                {% for alerta in alerts %}
+                    <p>{{ alerta }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Gráficos -->
+        {% if graph %}
+            <div class="row mt-5">
+                <div class="col-md-12">
+                    {{ graph|safe }}
+                </div>
+            </div>
+        {% endif %}
+    </main>
+
+    <!-- Rodapé -->
+    <footer class="bg-dark text-white text-center py-3">
+        <p>&copy; 2024 Battery Monitoring System | i9+ Baterias Elétricas e Energias</p>
+        <p><a href="mailto:email@example.com" class="text-white">Contact Us</a></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% block content %}
+    {% if alerts is defined and alerts %}
+        <script type="text/javascript">
+            const jsondata = JSON.parse('{{ alerts | tojson | safe }}');
+            alert(jsondata);
+        </script>
+    {% endif %}
+    {% endblock %}
+</body>
+</html>
